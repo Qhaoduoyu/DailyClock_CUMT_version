@@ -138,6 +138,30 @@ Connection: close
         print('Error :getWid\n', e, hh.text())
         return '', '', ''
 
+def getSignWid(Cookie):
+    # 利用授权后的Cookie来 获取sign所需Wid
+    hack = HackRequests.hackRequests()
+    postData = json.dumps({})
+    postDataLen = len(postData)
+    raw = '''
+POST /wec-counselor-sign-apps/stu/sign/getStuSignInfosInOneDay HTTP/1.1
+Host: cumt.campusphere.net
+Cookie: {0}
+Content-Type: application/json;charset=utf-8
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 (4480048640)cpdaily/9.0.12  wisedu/9.0.12
+Content-Length: {1}
+Connection: close
+
+{2}'''.format(Cookie, postDataLen, postData)
+    try:
+        hh = hack.httpraw(raw=raw, ssl=True)
+        searchWidJson = json.loads(hh.text())
+        signInstanceWid = searchWidJson['datas']['unSignedTasks'][0]['signInstanceWid']
+        return hack, signInstanceWid
+    except Exception as e:
+        print('Error :get signInstanceWid\n', e, hh.text())
+        return '', ''
+
 
 def getForm(Cookie, hack, formWid, collectorWid):
     # 获得 需要填写的表单,其中有表单号等信息
@@ -366,6 +390,11 @@ def generateForm(formJson, formWid, collectorWid, schoolTaskWid):
     return configForm
 
 
+def generateSignJson(signInstanceWid):
+    postData = {'longitude': '117.150972', 'latitude': '34.225506', 'isMalposition': '0', 'abnormalReason': '', 'signPhotoUrl': '', 'isNeedExtra': '0', 'position': '江苏省徐州市泉山区学苑北路293号', 'uaIsCpadaily': 'true', 'signInstanceWid': signInstanceWid , 'signVersion': '1.0.0'}
+    return postData
+
+
 def submitForm(configForm, Cookie, hack):
     postData = json.dumps(configForm)
     postDataLen = len(postData)
@@ -376,6 +405,30 @@ Cookie: {0}
 Accept: */*
 Content-Type: application/json
 Cpdaily-Extension: 64JITpWPkKtUkPOlKP1yHfWAD+jUF0R5Cx/ou+A4jqUqgWk7tzyzDVcXPd/Q 6b3Ien3x11uqd6I/v+S3etP2SauWgaBNYAbwm8xTx3/HDdRGIQmLI+LfMfLc RuFLj7aPuXtiBBgg+3gSVLI8SYZF7VLQcSEV9UFxu8iS6Xw5ZDkxuAcyZvhB NrWy9lbutL1uIEGlnT6weUghFysWTxk2hWkgWWXaPWRxkhftB88X2lflLLKd SJHku1KvHa+faogGiDIkWzrOrJVvPPnUkdnBcg==
+Accept-Language: zh-cn
+Content-Length: {1}
+Accept-Encoding: gzip, deflate
+Connection: close
+
+{2}'''.format(Cookie, postDataLen, postData)
+    # print(raw)
+    try:
+        hh = hack.httpraw(raw=raw, ssl=True)
+        return hh
+    except:
+        return ''
+
+
+def submitSignInfo(configSignData, Cookie, hack):
+    postData = json.dumps(configSignData)
+    postDataLen = len(postData)
+    raw = '''
+POST /wec-counselor-sign-apps/stu/sign/submitSign HTTP/1.1
+Host: cumt.campusphere.net
+Cookie: {0}
+Accept: */*
+Content-Type: application/json
+Cpdaily-Extension: 6XkC1UAk07fK0uTaGPUu77i/+r7j/o1JQ/XygRxee2LMiX5H+w/BOglp8Pja r2pVY0DlscGbazQ7OF86yFPEigJHcMMYOzpwJtyVj1qaW+QVdTJxw1l/KjNw cQdyS8cRaRhP4nWarLJrZBpZvXjnEiduZzL8EBCcblqcMfrfW0E84tLIgT8e JvgPPRB48C3BI2D96zegIpbE6u/j+OEq67S4ijKPIW3CT6HMhH3W9EUL0NlA cHqcWRv85gTzS+Ea
 Accept-Language: zh-cn
 Content-Length: {1}
 Accept-Encoding: gzip, deflate
@@ -407,8 +460,16 @@ def main(username, password):
         print(hh.text())
 
 
-if __name__ == '__main__':
-    # 账户为  http://authserver.cumt.edu.cn/authserver/login 账户
-    username = ''
-    password = ''
-    main(username, password)
+def checkin_main(username, password):
+    session = requests.Session()
+    url = authServerUrl()
+    session, password, execution = parseDate(session, url, password)
+    session, url, cookie = login(session, url, username, password, execution)
+    Cookie = getAuth(session, url, cookie)
+    hack, signInstanceWid = getSignWid(Cookie)
+    configJsonData = generateSignJson(signInstanceWid)
+    hh = submitSignInfo(configJsonData, Cookie, hack)
+    if hh == '':
+        print('提交失败')
+    else:
+        print(hh.text())
